@@ -130,31 +130,95 @@ def exp_gain_stgy(die_gain=100):
             return False
     return stop_turn
 
-#min 600 pts then down to 2 die
+def composite_stgy(min_score=400, min_dice=2):
+    def stop_turn(num_dice, score):
+        if (score >= min_score) and (num_dice <= min_dice):
+            return True
+        else:
+            return False
+    return stop_turn
 
-class player:
+def ncomposite_stgy(min_score=400, min_dice=2):
+    def stop_turn(num_dice, score):
+        if (score < min_score) or (num_dice < min_dice):
+            return True
+        else:
+            return False
+    return stop_turn
+
+def nscore_cap_stgy(max_score=400):
+    def stop_turn(num_dice, score):
+        if score < max_score:
+            return True
+        else:
+            return False
+    return stop_turn
+
+class zilch:
+    def __init__(self, players, additive=True):
+        self.players = players
+        self.additive = additive
+        self.end_condition = 10000
+        self.tie_breaker = 5000
+    
+    def play_game(self):
+        roll = (None, 0) # Null roll
+        end_condition = self.end_condition
+        while True:
+            end_game = False
+            for player in self.players:
+                if self.additive:
+                    roll = player.take_turn(roll)
+                else:
+                    roll = player.take_turn()
+
+                if player.score > end_condition:
+                    end_game = True
+            
+            if end_game:
+                scores = [player.score for player in self.players]
+                if len(scores) > 1:
+                    if scores[-1] == scores[-2]:
+                        end_condition += self.tie_breaker
+                        continue
+                        #break tie
+                break
+                #end game
+        
+        return [player.score for player in self.players]
+            
+class zilch_player:
     def __init__(self, num_dice = 6, strategy=None):
         self.score = 0
         self.num_dice = num_dice
         if strategy is None:
-            self.strategy = (greedy_stgy(), score_cap_stgy())
+            self.strategy = (greedy_stgy(), score_cap_stgy(), num_dice_stgy())
         else:
             self.strategy = strategy
     
-    def take_turn(self):
-        roll = (self.num_dice, 0)
-        while roll[0] is not None:
-            max_score = roll[1]
-            if roll[0] == 0:
-                num_dice = self.num_dice
-            else:
-                num_dice = roll[0]
-            
-            if self.strategy[1](num_dice, roll[1]):
-                break
+    def take_turn(self, roll=(None, 0)):
+        if roll[0] is None:
+            roll = (self.num_dice, 0)
+        else:
+            if self.strategy[2](roll[0], roll[1]):
+                roll = (self.num_dice, 0)
+    
+        while True:
+            roll = self.roll(roll[0], roll[1])
 
-            roll = self.roll(num_dice, roll[1])
-        return roll[1]
+            if roll[0] is None:
+                break
+                #zilch
+            
+            if roll[0] == 0:
+                roll = (self.num_dice, roll[1])
+            
+            if self.strategy[1](roll[0], roll[1]):
+                break
+                #scored
+
+        self.score += roll[1]
+        return roll
     
     def roll(self, num_dice, score=0):
         # num_dice random integers from 1 to 6
@@ -166,28 +230,15 @@ class player:
         else:
             return None, 0
 
-d = []
-b = numpy.arange(40, 140, 1)
+data = []
+for i in range(1000):
+    me = zilch_player(strategy=(max_dice_stgy(), composite_stgy(400, 2), ncomposite_stgy(600, 1)))
+    you = zilch_player(strategy=(greedy_stgy(), exp_gain_stgy(50), ncomposite_stgy(600, 1)))
+    
+    game = zilch([me, you], additive=True)
+    data.append(game.play_game())
 
-for j in b:
-    me = player(strategy=(greedy_stgy(), exp_gain_stgy(j)))
-    data = numpy.array([me.take_turn() for i in range(100000)])
-    
-    print("num die: " + str(j))
-    print(numpy.mean(data))
-    d.append(numpy.mean(data))
-    print(numpy.std(data, ddof=0)/numpy.sqrt(len(data)))
-    print(numpy.std(data, ddof=0))
-    print(data.max())
-    print("")
-    
-    #bins = numpy.arange(-25, data.max()*2/3.0, 50)
-    #f, (ax1, ax2) = pyplot.subplots(2, 1, sharex=True)
-    
-    #hist, bins2 = numpy.histogram(data, bins=bins, density=True)
-    #ax1.bar(bins2[:-1], hist*50.0, numpy.diff(bins2))
-    #ax2.hist(data, bins=bins, normed=True, cumulative=True)
-    #pyplot.show(f)
-    
-pyplot.plot(b, d)
-pyplot.show()    
+data = numpy.array(data)
+data = numpy.array([1 if x>y else 0 for x, y in data])
+print("me win rate: " + str(numpy.mean(data)))
+print("error: " + str(numpy.std(data)/numpy.sqrt(len(data))))
