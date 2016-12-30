@@ -9,14 +9,18 @@ class roll_state:
     def __str__(self):
         return "dice: " + str(self.dice) + " score: " + str(self.score)
 
+def is_sequential(state):
+    if len(state.dice) > 1:
+        for i in range(len(state.dice[:-1])):
+            if state.dice[i] + 1 != state.dice[i + 1]:
+                return False
+    return True
+
 def score_runs(state):
     states = [state]
-    if len(state.dice) == 5:
-        if numpy.array_equal(state.dice, numpy.arange(1, 6)):
-            states = [roll_state([], state.score + 500)]
-    if len(state.dice) == 6:
-        if numpy.array_equal(state.dice, numpy.arange(1, 7)):
-            states = [roll_state([], state.score + 600)]
+    if len(state.dice) >= 5:
+        if is_sequential(state):
+            states.append(roll_state([], state.score + 100*len(state.dice)))
     return states
 
 def score_fives(state):
@@ -90,10 +94,13 @@ def greedy_stgy():
             return None
     return choose_dice
 
-def max_dice_stgy(exp_low=49, exp_high=101):
+def max_dice_stgy(exp_low=49, exp_high=101, max_dice=6):
     def choose_dice(state):
         def srt(obj):
-            if len(obj.dice) < 3:
+            if len(obj.dice) == 0:
+                # Assume moderate score next roll
+                return obj.score + exp_low*max_dice
+            elif len(obj.dice) < 3:
                 # Take anything
                 return obj.score + exp_low*len(obj.dice)
             else:
