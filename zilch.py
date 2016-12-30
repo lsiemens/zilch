@@ -122,6 +122,16 @@ def num_dice_stgy(min_dice=2):
             return False
     return stop_turn
 
+def exp_gain_stgy(die_gain=100):
+    def stop_turn(num_dice, score):
+        if (score + die_gain*num_dice)*(1.0 - (2.0/3.0)**num_dice) < score:
+            return True
+        else:
+            return False
+    return stop_turn
+
+#min 600 pts then down to 2 die
+
 class player:
     def __init__(self, num_dice = 6, strategy=None):
         self.score = 0
@@ -157,19 +167,18 @@ class player:
             return None, 0
 
 d = []
-b = [1, 2, 3, 4, 5]
+b = numpy.arange(40, 140, 1)
 
 for j in b:
-    me = player(strategy=(greedy_stgy(), num_dice_stgy(j)))
+    me = player(strategy=(greedy_stgy(), exp_gain_stgy(j)))
     data = numpy.array([me.take_turn() for i in range(100000)])
-    #print(data)
     
-    print("cap: " + str(j))
+    print("num die: " + str(j))
     print(numpy.mean(data))
     d.append(numpy.mean(data))
     print(numpy.std(data, ddof=0)/numpy.sqrt(len(data)))
-    #print(numpy.std(data, ddof=0))
-    #print(data.max())
+    print(numpy.std(data, ddof=0))
+    print(data.max())
     print("")
     
     #bins = numpy.arange(-25, data.max()*2/3.0, 50)
