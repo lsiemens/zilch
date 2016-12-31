@@ -163,27 +163,30 @@ def nscore_cap_stgy(max_score=400):
 
 class zilch:
     def __init__(self, players, additive=True):
+        # players is dict of distinct players
         self.players = players
+        self.players_order = [player for player in self.players.values()]
         self.additive = additive
         self.end_condition = 10000
         self.tie_breaker = 5000
+        numpy.random.shuffle(self.players_order)
     
     def play_game(self):
         roll = (None, 0) # Null roll
         end_condition = self.end_condition
         while True:
             end_game = False
-            for player in self.players:
+            for player in self.players_order:
                 if self.additive:
                     roll = player.take_turn(roll)
                 else:
                     roll = player.take_turn()
 
-                if player.score > end_condition:
+                if player.score >= end_condition:
                     end_game = True
             
             if end_game:
-                scores = [player.score for player in self.players]
+                scores = [player.score for player in self.players_order]
                 if len(scores) > 1:
                     if scores[-1] == scores[-2]:
                         end_condition += self.tie_breaker
@@ -192,7 +195,7 @@ class zilch:
                 break
                 #end game
         
-        return [player.score for player in self.players]
+        return self.players
             
 class zilch_player:
     def __init__(self, num_dice = 6, strategy=None):
@@ -238,12 +241,15 @@ class zilch_player:
             return None, 0
 
 data = []
-for i in range(1000):
-    me = zilch_player(strategy=(max_dice_stgy(), composite_stgy(400, 2), ncomposite_stgy(600, 1)))
-    you = zilch_player(strategy=(greedy_stgy(), exp_gain_stgy(50), ncomposite_stgy(600, 1)))
+for i in range(10000):
+#    me = zilch_player(strategy=(max_dice_stgy(), composite_stgy(500, 2), ncomposite_stgy(1000, 2)))
+    me = zilch_player(strategy=(greedy_stgy(), composite_stgy(300, 2), ncomposite_stgy(600, 2)))
+    you = zilch_player(strategy=(greedy_stgy(), exp_gain_stgy(50), ncomposite_stgy(600, 2)))
     
-    game = zilch([me, you], additive=True)
-    data.append(game.play_game())
+    game = zilch({"me":me, "you":you}, additive=True)
+    players = game.play_game()
+    data.append([players["me"].score, players["you"].score])
+#    data.append(game.play_game())
 
 data = numpy.array(data)
 data = numpy.array([1 if x>y else 0 for x, y in data])
